@@ -103,7 +103,33 @@
     .action-btn.edit:hover { background: #1976d2; }
     .action-btn.delete { background: #f44336; color: #fff; }
     .action-btn.delete:hover { background: #d32f2f; }
-    .loading-opt { color: #999; font-style: italic; }
+    .help-tabs { display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 2px solid #f0f0f0; }
+    .help-tab { flex: 1; padding: 10px; border: none; background: transparent; font-size: 14px; font-weight: 500; color: #666; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s; }
+    .help-tab:hover { color: #9c27b0; }
+    .help-tab.active { color: #9c27b0; border-bottom-color: #9c27b0; }
+    .help-content { max-height: 400px; overflow-y: auto; padding-right: 8px; }
+    .help-content::-webkit-scrollbar { width: 6px; }
+    .help-content::-webkit-scrollbar-track { background: #f5f5f5; }
+    .help-content::-webkit-scrollbar-thumb { background: #9c27b0; border-radius: 3px; }
+    .help-content h4 { font-size: 14px; color: #9c27b0; margin: 16px 0 8px; }
+    .help-content p { font-size: 13px; color: #555; line-height: 1.6; margin: 8px 0; }
+    .help-content ul { margin: 8px 0; padding-left: 20px; }
+    .help-content li { font-size: 13px; color: #555; line-height: 1.6; margin: 4px 0; }
+    .about-info ul { margin: 8px 0; padding-left: 20px; }
+    .about-info li { font-size: 13px; color: #555; line-height: 1.6; margin: 6px 0; }
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+    .stats-card { background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%); border-radius: 12px; padding: 16px; text-align: center; }
+    .stats-number { font-size: 28px; font-weight: 700; color: #7b1fa2; margin: 8px 0 4px; }
+    .stats-label { font-size: 12px; color: #666; }
+    .stats-section { margin-top: 16px; }
+    .stats-section h4 { font-size: 14px; color: #333; margin-bottom: 12px; }
+    .stats-item { display: flex; align-items: center; padding: 10px; background: #fafafa; border-radius: 8px; margin-bottom: 8px; }
+    .stats-item-name { flex: 1; font-size: 13px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .stats-item-count { background: #9c27b0; color: #fff; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; }
+    .stats-item-count.clickable { background: #9c27b0; cursor: pointer; }
+    .stats-item-count.clickable:hover { background: #7b1fa2; }
+    .domain-item, .folder-item { cursor: pointer; }
+    .domain-item:hover, .folder-item:hover { background: #f3e5f5; }
     .export-card { display: flex; align-items: center; justify-content: space-between; background: #fff; border-radius: 8px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 3px 0 rgba(0,0,0,0.12); transition: all 0.2s; border: 1px solid transparent; }
     .export-card:hover { box-shadow: 0 3px 8px -1px rgba(0,0,0,0.15); border-color: #e1bee7; }
     .export-info { display: flex; flex-direction: column; }
@@ -200,7 +226,10 @@
   <!-- App Bar -->
   <div class="app-bar">
     <h1><span class="material-icons">bookmark</span> <span id="appTitle">書籤管理</span></h1>
-    <span class="material-icons" id="settingsBtn" title="Settings">settings</span>
+    <div style="display:flex;gap:8px;">
+      <span class="material-icons" id="helpBtn" title="Help">help_outline</span>
+      <span class="material-icons" id="settingsBtn" title="Settings">settings</span>
+    </div>
   </div>
   
   <!-- Search Bar (only visible on search tab) -->
@@ -235,6 +264,10 @@
     <button class="menu-btn" data-tab="batch" id="menuBatch">
       <span class="material-icons">dashboard</span>
       <span>批量</span>
+    </button>
+    <button class="menu-btn" data-tab="stats" id="menuStats">
+      <span class="material-icons">bar_chart</span>
+      <span>分析</span>
     </button>
     <button class="menu-btn" data-tab="export" id="menuExport">
       <span class="material-icons">file_download</span>
@@ -292,6 +325,32 @@
       <div id="batchList" class="batch-scroll"></div>
     </div>
     
+    <!-- Stats -->
+    <div class="tab-content" id="stats-tab">
+      <div id="statsContent">
+        <div class="stats-grid">
+          <div class="stats-card">
+            <span class="material-icons" style="font-size:32px;color:#9c27b0;">bookmark</span>
+            <div class="stats-number" id="totalBookmarks">-</div>
+            <div class="stats-label">書籤總數</div>
+          </div>
+          <div class="stats-card">
+            <span class="material-icons" style="font-size:32px;color:#ff9800;">folder</span>
+            <div class="stats-number" id="totalFolders">-</div>
+            <div class="stats-label">資料夾數</div>
+          </div>
+        </div>
+        <div class="stats-section">
+          <h4>🌐 網址網域 TOP10</h4>
+          <div id="domainStatsList"></div>
+        </div>
+        <div class="stats-section">
+          <h4>📁 資料夾書籤數</h4>
+          <div id="folderStatsList"></div>
+        </div>
+      </div>
+    </div>
+    
     <!-- Export -->
     <div class="tab-content" id="export-tab">
       <div class="export-card">
@@ -299,50 +358,23 @@
           <span class="export-title" id="expHtmlT">HTML 格式</span>
           <span class="export-desc" id="expHtmlD">標準書籤格式</span>
         </div>
-        <button class="btn btn-contained" onclick="BM_export('html')">匯出</button>
+        <button class="btn btn-contained" id="exportHtmlBtn">匯出</button>
       </div>
       <div class="export-card">
         <div class="export-info">
           <span class="export-title" id="expJsonT">JSON 格式</span>
           <span class="export-desc" id="expJsonD">完整備份含元數據</span>
         </div>
-        <button class="btn btn-contained" onclick="BM_export('json')">匯出</button>
+        <button class="btn btn-contained" id="exportJsonBtn">匯出</button>
       </div>
       <div class="export-card">
         <div class="export-info">
           <span class="export-title" id="expMdT">Markdown</span>
           <span class="export-desc" id="expMdD">適合閱讀整理</span>
         </div>
-        <button class="btn btn-contained" onclick="BM_export('markdown')">匯出</button>
+        <button class="btn btn-contained" id="exportMdBtn">匯出</button>
       </div>
     </div>
-    
-    <!-- Stats -->
-    <div class="tab-content" id="stats-tab">
-      <div id="statsContent">
-        <div class="empty-state">
-          <span class="material-icons">bar_chart</span>
-          <p>點擊此頁面查看統計</p>
-        </div>
-      </div>
-    </div>
-    
-    <!-- Dead Links -->
-    <div class="tab-content" id="links-tab">
-      <div style="margin-bottom:12px;">
-        <button class="btn btn-contained ripple" onclick="BM_scanDeadLinksWithUI()" style="width:100%;">
-          <span class="material-icons">search</span> 掃描失效連結
-        </button>
-      </div>
-      <div id="linksContent">
-        <div class="empty-state">
-          <span class="material-icons">link_off</span>
-          <p>點擊上方按鈕掃描失效連結</p>
-        </div>
-      </div>
-    </div>
-    
-
   
   <!-- Settings Modal -->
   <div class="modal-overlay" id="settingsModal">
@@ -435,6 +467,82 @@
       <div class="modal-actions">
         <button class="btn btn-outlined" id="cancelEdit">取消</button>
         <button class="btn btn-contained" id="saveEdit">儲存</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Help Modal -->
+  <div class="modal-overlay" id="helpModal">
+    <div class="modal" style="max-width:500px;">
+      <div class="modal-title">
+        <span class="material-icons" style="vertical-align:middle;">help_outline</span> 說明
+      </div>
+      <div class="help-tabs">
+        <button class="help-tab active" data-tab="privacy">隱私政策</button>
+        <button class="help-tab" data-tab="about">關於</button>
+      </div>
+      <div class="help-content" id="privacy-content" style="display:block;">
+        <h3 style="margin-top:0;font-size:16px;">隱私政策</h3>
+        <h4>1. 資料收集</h4>
+        <p>本擴充功能不會收集或傳輸您的任何個人資料到遠端伺服器。所有資料都儲存在您的本地瀏覽器中。</p>
+        <h4>2. 資料儲存</h4>
+        <p>本擴充功能使用 Chrome 的本地儲存（chrome.storage.local）來儲存以下資訊：</p>
+        <ul>
+          <li>書籤資料：用於快速存取和展示書籤</li>
+        </ul>
+        <p>所有儲存的資料僅保存在您的本地裝置上，不會同步到雲端。</p>
+        <h4>3. 權限使用說明</h4>
+        <p>本擴充功能需要以下權限才能正常運作：</p>
+        <ul>
+          <li>bookmarks（書籤）：讀取您的 Chrome 書籤，以便在導覽頁面中展示</li>
+          <li>storage（儲存）：在本地儲存您的設定資料</li>
+          <li>tabs（分頁）：開啟書籤時建立新分頁</li>
+        </ul>
+        <h4>4. 第三方服務</h4>
+        <p>本擴充功能使用了以下第三方服務：</p>
+        <ul>
+          <li>Favicon 獲取：使用 Google Favicon 服務獲取網站圖示</li>
+        </ul>
+        <h4>5. 資料安全</h4>
+        <p>我們採取措施保護您的資料安全：</p>
+        <ul>
+          <li>所有資料儲存在本地，不上傳到我們的伺服器</li>
+          <li>不收集任何使用統計資料或使用者行為資料</li>
+        </ul>
+        <h4>6. 政策更新</h4>
+        <p>我們可能會不時更新本隱私政策。更新後的政策將在本頁面發布，並在擴充功能更新時通知您。</p>
+        <p>本擴充功能尊重您的隱私，並致力於保護您的個人資訊安全。</p>
+      </div>
+      <div class="help-content" id="about-content" style="display:none;">
+        <h3 style="margin-top:0;font-size:16px;">關於</h3>
+        <div class="about-info">
+          <div style="text-align:center;margin-bottom:20px;">
+            <img src="icons8-bookmark-64.png" style="width:64px;height:64px;border-radius:12px;">
+            <h2 style="margin:12px 0 4px;">書籤管理助手</h2>
+            <p style="color:#666;margin:0;">版本 1.02</p>
+          </div>
+          <h4>主要功能</h4>
+          <ul>
+            <li><strong>🔍 快速搜尋</strong>：快速搜尋書籤，支援關鍵字高亮</li>
+            <li><strong>📁 資料夾篩選</strong>：按資料夾過濾書籤</li>
+            <li><strong>📊 分析統計</strong>：網域/資料夾書籤數量統計，點擊可快速檢索</li>
+            <li><strong>📋 重複偵測</strong>：找出並管理重複書籤</li>
+            <li><strong>✏️ 編輯書籤</strong>：直接編輯書籤名稱和網址</li>
+            <li><strong>🔗 連結測試</strong>：測試書籤網址是否正常</li>
+            <li><strong>🗂️ 批次操作</strong>：批次刪除或移動書籤，支援資料夾選擇</li>
+            <li><strong>💾 資料持久化</strong>：搜尋結果自動保存到 IndexedDB</li>
+            <li><strong>🌐 多語言</strong>：支援繁體、簡體、英文</li>
+            <li><strong>📤 匯出功能</strong>：匯出為 HTML、JSON、Markdown</li>
+            <li><strong>📱 響應式設計</strong>：自訂視窗大小，滾動位置自動保留</li>
+            <li><strong>🔒 隱私優先</strong>：所有資料本地儲存，不上傳伺服器</li>
+          </ul>
+          <p style="color:#666;font-size:12px;text-align:center;margin-top:20px;">
+            使用 Chrome Extension API (Manifest V3) 建構
+          </p>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-contained" id="closeHelp">關閉</button>
       </div>
     </div>
   </div>

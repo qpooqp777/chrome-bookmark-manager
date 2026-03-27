@@ -136,8 +136,16 @@ function BM_displaySearchResults(results) {
   BM_currentQuery = document.getElementById('searchInput') ? document.getElementById('searchInput').value : '';
   BM_lastResults = results;
   
-  // Save to IndexedDB
-  BM_saveCache('lastResults', results);
+  // Save to IndexedDB including scroll position and folder
+  var scrollTop = container.scrollTop;
+  var folderSelect = document.getElementById('searchFolderSelect');
+  var selectedFolder = folderSelect ? folderSelect.value : '';
+  BM_saveCache('lastResults', { 
+    results: results, 
+    scrollTop: scrollTop,
+    folder: selectedFolder,
+    query: BM_currentQuery
+  });
   
   if (results.length === 0) {
     container.innerHTML = '<div class="empty-state"><span class="material-icons">search_off</span><p>' + 
@@ -562,4 +570,157 @@ async function BM_export(format) {
   a.click();
   URL.revokeObjectURL(url);
   BM_showToast(BM_T('exported') + ' ' + filename);
+}
+
+function BM_showStats() {
+  var data = BM_allBookmarks;
+  var folders = BM_allFolders;
+  
+  // Update totals
+  var totalEl = document.getElementById('totalBookmarks');
+  var foldersEl = document.getElementById('totalFolders');
+  if (totalEl) totalEl.textContent = data.length;
+  if (foldersEl) foldersEl.textContent = folders.length;
+  
+  // Count by domain
+  var domainCounts = {};
+  for (var i = 0; i < data.length; i++) {
+    var url = data[i].url || '';
+    var domain = url;
+    try {
+      domain = url.split('/')[2] || url;
+    } catch (e) {}
+    domainCounts[domain] = (domainCounts[domain] || 0) + 1;
+  }
+  
+  // Sort domains by count
+  var sortedDomains = [];
+  var domainKeys = Object.keys(domainCounts);
+  for (var j = 0; j < domainKeys.length; j++) {
+    sortedDomains.push({ domain: domainKeys[j], count: domainCounts[domainKeys[j]] });
+  }
+  sortedDomains.sort(function(a, b) { return b.count - a.count; });
+  
+  // Display domain stats
+  var domainList = document.getElementById('domainStatsList');
+  if (domainList) {
+    var html = '';
+    for (var k = 0; k < Math.min(sortedDomains.length, 10); k++) {
+      html += '<div class="stats-item domain-item" data-domain="' + BM_escapeHtml(sortedDomains[k].domain) + '">' +
+        '<span class="stats-item-name">' + BM_escapeHtml(sortedDomains[k].domain) + '</span>' +
+        '<span class="stats-item-count clickable">' + sortedDomains[k].count + '</span>' +
+        '</div>';
+    }
+    domainList.innerHTML = html || '<div class="empty-state"><span class="material-icons">language</span><p>無網域資料</p></div>';
+    
+    // Bind click events for domain
+    var domainItems = domainList.querySelectorAll('.domain-item');
+    for (var m = 0; m < domainItems.length; m++) {
+      domainItems[m].addEventListener('click', function() {
+        var domain = this.dataset.domain;
+        BM_switchToSearchWithDomain(domain);
+      });
+    }
+  }
+  
+  // Count by folder
+  var folderCounts = {};
+  for (var n = 0; n < data.length; n++) {
+    var folder = data[n].folder || 'Other';
+    folderCounts[folder] = (folderCounts[folder] || 0) + 1;
+  }
+  
+  // Sort folders by count
+  var sortedFolders = [];
+  var folderKeys = Object.keys(folderCounts);
+  for (var p = 0; p < folderKeys.length; p++) {
+    sortedFolders.push({ name: folderKeys[p], count: folderCounts[folderKeys[p]] });
+  }
+  sortedFolders.sort(function(a, b) { return b.count - a.count; });
+  
+  // Display folder stats
+  var folderStatsList = document.getElementById('folderStatsList');
+  if (folderStatsList) {
+    var html2 = '';
+    for (var q = 0; q < Math.min(sortedFolders.length, 20); q++) {
+      html2 += '<div class="stats-item folder-item" data-folder="' + BM_escapeHtml(sortedFolders[q].name) + '">' +
+        '<span class="stats-item-name">' + BM_escapeHtml(sortedFolders[q].name) + '</span>' +
+        '<span class="stats-item-count clickable">' + sortedFolders[q].count + '</span>' +
+        '</div>';
+    }
+    folderStatsList.innerHTML = html2 || '<div class="empty-state"><span class="material-icons">folder</span><p>無資料</p></div>';
+    
+    // Bind click events for folder
+    var folderItems = folderStatsList.querySelectorAll('.folder-item');
+    for (var r = 0; r < folderItems.length; r++) {
+      folderItems[r].addEventListener('click', function() {
+        var folder = this.dataset.folder;
+        BM_switchToSearchWithFolder(folder);
+      });
+    }
+  }
+}
+
+function BM_switchToSearchWithDomain(domain) {
+  // Switch to search tab
+  var searchTab = document.getElementById('search-tab');
+  var menuBtns = document.querySelectorAll('.menu-btn');
+  var contents = document.querySelectorAll('.tab-content');
+  
+  for (var i = 0; i < contents.length; i++) {
+    contents[i].classList.remove('active');
+  }
+  for (var j = 0; j < menuBtns.length; j++) {
+    menuBtns[j].classList.remove('active');
+  }
+  
+  var searchMenu = document.querySelector('.menu-btn[data-tab="search"]');
+  if (searchMenu) {
+    searchMenu.classList.add('active');
+    BM_updateMenuIndicator(searchMenu);
+  }
+  if (searchTab) searchTab.classList.add('active');
+  
+  // Show search bar
+  var searchBar = document.getElementById('searchBar');
+  if (searchBar) searchBar.style.display = 'block';
+  
+  // Set search query to domain
+  var searchInput = document.getElementById('searchInput');
+  if (searchInput) {
+    searchInput.value = domain;
+    var folderSel = document.getElementById('searchFolderSelect');
+    BM_search(domain, folderSel ? folderSel.value : '').then(BM_displaySearchResults);
+  }
+}
+
+function BM_switchToSearchWithFolder(folder) {
+  // Switch to search tab
+  var searchTab = document.getElementById('search-tab');
+  var menuBtns = document.querySelectorAll('.menu-btn');
+  var contents = document.querySelectorAll('.tab-content');
+  
+  for (var i = 0; i < contents.length; i++) {
+    contents[i].classList.remove('active');
+  }
+  for (var j = 0; j < menuBtns.length; j++) {
+    menuBtns[j].classList.remove('active');
+  }
+  
+  var searchMenu = document.querySelector('.menu-btn[data-tab="search"]');
+  if (searchMenu) {
+    searchMenu.classList.add('active');
+    BM_updateMenuIndicator(searchMenu);
+  }
+  if (searchTab) searchTab.classList.add('active');
+  
+  // Show search bar
+  var searchBar = document.getElementById('searchBar');
+  if (searchBar) searchBar.style.display = 'block';
+  
+  // Set folder filter
+  var folderSel = document.getElementById('searchFolderSelect');
+  if (folderSel) folderSel.value = folder;
+  var searchInput = document.getElementById('searchInput');
+  BM_search(searchInput ? searchInput.value : '', folder).then(BM_displaySearchResults);
 }
