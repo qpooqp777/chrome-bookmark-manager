@@ -75,6 +75,8 @@
     .btn-outlined:hover { background: rgba(156,39,176,0.08); }
     .btn-danger { background: #d32f2f; color: #fff; box-shadow: 0 2px 4px -1px rgba(0,0,0,0.2); }
     .btn-danger:hover { background: #c62828; }
+    .btn-success { background: #4caf50; color: #fff; box-shadow: 0 2px 4px -1px rgba(0,0,0,0.2); }
+    .btn-success:hover { background: #388e3c; }
     .btn-small { padding: 8px; min-width: 40px; }
     .ripple { position: relative; overflow: hidden; }
     .batch-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: linear-gradient(135deg, #7b1fa2 0%, #9c27b0 100%); border-radius: 8px; margin-bottom: 12px; }
@@ -130,6 +132,23 @@
     .stats-item-count.clickable:hover { background: #7b1fa2; }
     .domain-item, .folder-item { cursor: pointer; }
     .domain-item:hover, .folder-item:hover { background: #f3e5f5; }
+    .duplicate-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: #f5f5f5; border-radius: 8px 8px 0 0; font-size: 13px; font-weight: 500; color: #666; }
+    .dup-info { display: flex; align-items: center; gap: 6px; }
+    .dup-header-actions { display: flex; align-items: center; gap: 8px; }
+    .dup-label { font-size: 12px; color: #999; font-weight: normal; }
+    .dup-select-all { display: flex; align-items: center; gap: 4px; cursor: pointer; font-size: 12px; color: #666; }
+    .dup-select-all input { width: 16px; height: 16px; }
+    .dup-select-nonkept { padding: 4px 8px; font-size: 11px; border: 1px solid #ddd; background: #fff; border-radius: 4px; cursor: pointer; color: #666; }
+    .dup-select-nonkept:hover { background: #f5f5f5; border-color: #ccc; }
+    .dup-keep { background: #e8f5e9; }
+    .dup-delete { background: #fff; }
+    .dup-keep .keep-badge, .dup-delete .keep-badge { display: none; }
+    .drag-handle { margin-right: 8px; cursor: grab; }
+    .drag-handle:active { cursor: grabbing; }
+    .dup-actions { margin-top: 16px; padding-top: 16px; border-top: 1px solid #eee; }
+    .dup-item-check { width: 18px; height: 18px; margin-right: 8px; accent-color: #f44336; }
+    .bookmark-item[draggable="true"] { cursor: grab; }
+    .bookmark-item[draggable="true"]:active { cursor: grabbing; }
     .export-card { display: flex; align-items: center; justify-content: space-between; background: #fff; border-radius: 8px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 3px 0 rgba(0,0,0,0.12); transition: all 0.2s; border: 1px solid transparent; }
     .export-card:hover { box-shadow: 0 3px 8px -1px rgba(0,0,0,0.15); border-color: #e1bee7; }
     .export-info { display: flex; flex-direction: column; }
@@ -220,6 +239,19 @@
     .folder-list::-webkit-scrollbar { width: 6px; }
     .folder-list::-webkit-scrollbar-track { background: #f5f5f5; }
     .folder-list::-webkit-scrollbar-thumb { background: #9c27b0; border-radius: 3px; }
+    .sort-options { padding: 8px 0; }
+    .sort-group { margin-bottom: 20px; }
+    .sort-label { font-size: 13px; color: #666; font-weight: 500; display: block; margin-bottom: 10px; }
+    .sort-buttons { display: flex; gap: 10px; }
+    .sort-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; border: 2px solid #e0e0e0; background: #fff; border-radius: 8px; cursor: pointer; font-size: 14px; color: #666; transition: all 0.2s; }
+    .sort-btn:hover { border-color: #9c27b0; color: #9c27b0; }
+    .sort-btn.active { border-color: #9c27b0; background: #f3e5f5; color: #9c27b0; font-weight: 500; }
+    .sort-toggle { display: flex; flex-direction: column; gap: 10px; }
+    .toggle-label { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 14px; color: #555; }
+    .toggle-label input { width: 18px; height: 18px; accent-color: #9c27b0; }
+    .batch-item-check { width: 18px; height: 18px; margin-right: 8px; accent-color: #9c27b0; }
+    .batch-drag-handle { color: #999; cursor: grab; margin-right: 8px; }
+    .batch-drag-handle:active { cursor: grabbing; }
   </style>
 </head>
 <body>
@@ -306,6 +338,7 @@
           <span id="selectAllLabel">全選</span>
         </label>
         <div class="batch-header-actions">
+          <button class="btn btn-success btn-sm" id="sortBtn">排序</button>
           <button class="btn btn-primary btn-sm" id="moveBtn" disabled>移動</button>
           <button class="btn btn-danger btn-sm" id="deleteBtn" disabled>刪除</button>
         </div>
@@ -441,6 +474,47 @@
     </div>
   </div>
   
+  <!-- Sort Modal -->
+  <div class="modal-overlay" id="sortModal">
+    <div class="modal">
+      <div class="modal-title">
+        <span class="material-icons" style="vertical-align:middle;">sort</span> 排序書籤
+      </div>
+      <div class="sort-options">
+        <div class="sort-group">
+          <label class="sort-label">排序方式</label>
+          <div class="sort-buttons">
+            <button class="sort-btn active" data-sort="az" id="sortAZ">
+              <span class="material-icons" style="font-size:18px;">sort_by_alpha</span>
+              <span>A → Z</span>
+            </button>
+            <button class="sort-btn" data-sort="za" id="sortZA">
+              <span class="material-icons" style="font-size:18px;">sort_by_alpha</span>
+              <span>Z → A</span>
+            </button>
+          </div>
+        </div>
+        <div class="sort-group">
+          <label class="sort-label">顯示方式</label>
+          <div class="sort-toggle">
+            <label class="toggle-label">
+              <input type="checkbox" id="sortShowCheckboxes" checked>
+              <span>顯示勾選框</span>
+            </label>
+            <label class="toggle-label">
+              <input type="checkbox" id="sortShowDrag" checked>
+              <span>顯示拖曳把手</span>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-outlined" id="cancelSort">取消</button>
+        <button class="btn btn-contained" id="confirmSort">套用</button>
+      </div>
+    </div>
+  </div>
+  
   <!-- Edit Modal -->
   <div class="modal-overlay" id="editModal">
     <div class="modal">
@@ -519,7 +593,7 @@
           <div style="text-align:center;margin-bottom:20px;">
             <img src="icons8-bookmark-64.png" style="width:64px;height:64px;border-radius:12px;">
             <h2 style="margin:12px 0 4px;">書籤管理助手</h2>
-            <p style="color:#666;margin:0;">版本 1.02</p>
+            <p style="color:#666;margin:0;">版本 1.03</p>
           </div>
           <h4>主要功能</h4>
           <ul>

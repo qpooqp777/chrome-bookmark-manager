@@ -316,23 +316,48 @@ async function BM_displayDuplicates() {
   var html = '';
   for (var i = 0; i < duplicates.length; i++) {
     var group = duplicates[i];
-    html += '<div class="duplicate-group"><div class="duplicate-header"><span class="material-icons" style="font-size:18px;">content_copy</span> ' +
-      BM_T('duplicates', { n: group.length }) + '</div>';
+    var groupId = 'dup-group-' + i;
+    var nonKeepCount = group.length - 1;
+    html += '<div class="duplicate-group" id="' + groupId + '" data-group-index="' + i + '">' +
+      '<div class="duplicate-header">' +
+      '<span class="dup-info"><span class="material-icons" style="font-size:18px;">content_copy</span> ' +
+      BM_T('duplicates', { n: group.length }) + '</span>' +
+      '<div class="dup-header-actions">' +
+      '<span class="dup-label">其他重複</span>' +
+      '<label class="dup-select-all" data-group="' + groupId + '">' +
+      '<input type="checkbox" class="dup-group-check" data-group="' + groupId + '">' +
+      '<span>全選</span></label>' +
+      '<button class="dup-select-nonkept" data-group="' + groupId + '">非保留</button>' +
+      '</div>' +
+      '</div>';
+    
     for (var j = 0; j < group.length; j++) {
       var b = group[j];
-      html += '<div class="bookmark-item">' +
+      var isKeep = (j === 0);
+      html += '<div class="bookmark-item ' + (isKeep ? 'dup-keep' : 'dup-delete') + '" ' +
+        'data-id="' + b.id + '" ' +
+        'data-index="' + j + '" ' +
+        'data-group="' + groupId + '" ' +
+        'draggable="true">' +
+        '<span class="material-icons drag-handle" style="color:#999;cursor:grab;">drag_indicator</span>' +
+        (!isKeep ? '<input type="checkbox" class="dup-item-check" data-id="' + b.id + '" data-group="' + groupId + '">' : '<span style="width:18px;display:inline-block;"></span>') +
         '<div class="bookmark-info"><div class="bookmark-title">' + BM_escapeHtml(b.title) + '</div>' +
         '<div class="bookmark-url">' + BM_escapeHtml(b.url) + '</div></div>' +
         '<span class="chip">' + BM_escapeHtml(b.folder) + '</span>' +
-        (j > 0 ? '<button class="btn btn-small btn-danger ripple" data-id="' + b.id + '">' +
-         '<span class="material-icons" style="font-size:18px;">delete</span></button>' :
-         '<span class="keep-badge"><span class="material-icons" style="font-size:18px;color:#4caf50;">check</span></span>') +
+        (isKeep ? '<span class="keep-badge"><span class="material-icons" style="font-size:18px;color:#4caf50;">check</span></span>' :
+         '<button class="btn btn-small btn-danger ripple" data-id="' + b.id + '"><span class="material-icons" style="font-size:18px;">delete</span></button>') +
         '</div>';
     }
     html += '</div>';
   }
+  
+  html += '<div class="dup-actions">' +
+    '<button class="btn btn-danger" id="deleteSelectedDups" disabled>刪除選中 (<span id="selectedDupCount">0</span>)</button>' +
+    '</div>';
+  
   container.innerHTML = html;
   
+  // Bind delete buttons
   var btns = container.querySelectorAll('.btn-danger');
   for (var k = 0; k < btns.length; k++) {
     btns[k].addEventListener('click', function() {
@@ -345,7 +370,287 @@ async function BM_displayDuplicates() {
       });
     });
   }
+  
+  // Bind checkboxes
+  var itemChecks = container.querySelectorAll('.dup-item-check');
+  for (var m = 0; m < itemChecks.length; m++) {
+    itemChecks[m].addEventListener('change', BM_updateDupSelectedCount);
+  }
+  
+  var groupChecks = container.querySelectorAll('.dup-group-check');
+  for (var n = 0; n < groupChecks.length; n++) {
+    groupChecks[n].addEventListener('change', function() {
+      var gid = this.dataset.group;
+      var checks = container.querySelectorAll('.dup-item-check[data-group="' + gid + '"]');
+      for (var p = 0; p < checks.length; p++) {
+        checks[p].checked = this.checked;
+      }
+      BM_updateDupSelectedCount();
+    });
+  }
+  
+  // 非保留 button
+  var nonKeptBtns = container.querySelectorAll('.dup-select-nonkept');
+  for (var q = 0; q < nonKeptBtns.length; q++) {
+    nonKeptBtns[q].addEventListener('click', function() {
+      var gid = this.dataset.group;
+      var checks = container.querySelectorAll('.dup-item-check[data-group="' + gid + '"]');
+      var allChecked = true;
+      for (var r = 0; r < checks.length; r++) {
+        if (!checks[r].checked) { allChecked = false; break; }
+      }
+      for (var s = 0; s < checks.length; s++) {
+        checks[s].checked = !allChecked;
+      }
+      BM_updateDupSelectedCount();
+    });
+  }
+  
+  // Drag and drop
+  BM_bindDragDrop();
+  
+  // Bind batch delete button
+  var delSelectedBtn = document.getElementById('deleteSelectedDups');
+  if (delSelectedBtn) {
+    delSelectedBtn.addEventListener('click', BM_deleteSelectedDuplicates);
+  }
+  
   BM_applySettings();
+}
+
+function BM_bindDragDrop() {
+  var items = document.querySelectorAll('.bookmark-item[draggable="true"]');
+  var draggedItem = null;
+  
+  for (var i = 0; i < items.length; i++) {
+    items[i].addEventListener('dragstart', function(e) {
+      draggedItem = this;
+      this.style.opacity = '0.5';
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    
+    items[i].addEventListener('dragend', function() {
+      this.style.opacity = '1';
+      draggedItem = null;
+    });
+    
+    items[i].addEventListener('dragover', function(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      this.style.borderTop = '3px solid #9c27b0';
+    });
+    
+    items[i].addEventListener('dragleave', function() {
+      this.style.borderTop = '';
+    });
+    
+    items[i].addEventListener('drop', function(e) {
+      e.preventDefault();
+      this.style.borderTop = '';
+      if (!draggedItem || draggedItem === this) return;
+      
+      var groupId = draggedItem.dataset.group;
+      var fromIndex = parseInt(draggedItem.dataset.index);
+      var toIndex = parseInt(this.dataset.index);
+      
+      if (fromIndex === toIndex) return;
+      
+      // Swap in memory
+      var groupIdx = parseInt(groupId.replace('dup-group-', ''));
+      BM_swapDuplicate(groupIdx, fromIndex, toIndex);
+    });
+  }
+}
+
+async function BM_bindBatchDragDrop() {
+  var container = document.getElementById('batchList');
+  if (!container) return;
+  
+  var items = container.querySelectorAll('.batch-bookmark-item');
+  var draggedItem = null;
+  
+  for (var i = 0; i < items.length; i++) {
+    items[i].addEventListener('dragstart', function(e) {
+      draggedItem = this;
+      this.style.opacity = '0.5';
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', '');
+    });
+    
+    items[i].addEventListener('dragend', function() {
+      this.style.opacity = '1';
+      draggedItem = null;
+      // Remove all drop indicators
+      var allItems = container.querySelectorAll('.batch-bookmark-item');
+      for (var j = 0; j < allItems.length; j++) {
+        allItems[j].style.borderTop = '';
+      }
+    });
+    
+    items[i].addEventListener('dragover', function(e) {
+      e.preventDefault();
+      if (draggedItem && draggedItem !== this) {
+        e.dataTransfer.dropEffect = 'move';
+        this.style.borderTop = '3px solid #9c27b0';
+      }
+    });
+    
+    items[i].addEventListener('dragleave', function() {
+      this.style.borderTop = '';
+    });
+    
+    items[i].addEventListener('drop', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      this.style.borderTop = '';
+      
+      if (!draggedItem || draggedItem === this) return;
+      
+      // Get positions
+      var allItems = Array.from(container.querySelectorAll('.batch-bookmark-item'));
+      var fromIndex = allItems.indexOf(draggedItem);
+      var toIndex = allItems.indexOf(this);
+      
+      if (fromIndex === toIndex) return;
+      
+      // Reorder DOM
+      if (fromIndex < toIndex) {
+        container.insertBefore(draggedItem, this.nextSibling);
+      } else {
+        container.insertBefore(draggedItem, this);
+      }
+      
+      BM_showToast('已移動');
+    });
+  }
+}
+
+async function BM_swapDuplicate(groupIdx, fromIndex, toIndex) {
+  // Swap the items and re-display
+  var duplicates = await BM_findDuplicates();
+  if (!duplicates[groupIdx]) return;
+  
+  var group = duplicates[groupIdx];
+  var temp = group[fromIndex];
+  group[fromIndex] = group[toIndex];
+  group[toIndex] = temp;
+  duplicates[groupIdx] = group;
+  
+  // Re-render this group
+  var groupEl = document.getElementById('dup-group-' + groupIdx);
+  if (!groupEl) return;
+  
+  var html = '<div class="duplicate-header">' +
+    '<span class="dup-info"><span class="material-icons" style="font-size:18px;">content_copy</span> ' +
+    BM_T('duplicates', { n: group.length }) + '</span>' +
+    '<div class="dup-header-actions">' +
+    '<span class="dup-label">其他重複</span>' +
+    '<label class="dup-select-all" data-group="dup-group-' + groupIdx + '">' +
+    '<input type="checkbox" class="dup-group-check" data-group="dup-group-' + groupIdx + '">' +
+    '<span>全選</span></label>' +
+    '<button class="dup-select-nonkept" data-group="dup-group-' + groupIdx + '">非保留</button>' +
+    '</div>' +
+    '</div>';
+  
+  for (var j = 0; j < group.length; j++) {
+    var b = group[j];
+    var isKeep = (j === 0);
+    html += '<div class="bookmark-item ' + (isKeep ? 'dup-keep' : 'dup-delete') + '" ' +
+      'data-id="' + b.id + '" ' +
+      'data-index="' + j + '" ' +
+      'data-group="dup-group-' + groupIdx + '" ' +
+      'draggable="true">' +
+      '<span class="material-icons drag-handle" style="color:#999;cursor:grab;">drag_indicator</span>' +
+      (!isKeep ? '<input type="checkbox" class="dup-item-check" data-id="' + b.id + '" data-group="dup-group-' + groupIdx + '">' : '<span style="width:18px;display:inline-block;"></span>') +
+      '<div class="bookmark-info"><div class="bookmark-title">' + BM_escapeHtml(b.title) + '</div>' +
+      '<div class="bookmark-url">' + BM_escapeHtml(b.url) + '</div></div>' +
+      '<span class="chip">' + BM_escapeHtml(b.folder) + '</span>' +
+      (isKeep ? '<span class="keep-badge"><span class="material-icons" style="font-size:18px;color:#4caf50;">check</span></span>' :
+       '<button class="btn btn-small btn-danger ripple" data-id="' + b.id + '"><span class="material-icons" style="font-size:18px;">delete</span></button>') +
+      '</div>';
+  }
+  
+  groupEl.innerHTML = html;
+  
+  // Re-bind events
+  var btns = groupEl.querySelectorAll('.btn-danger');
+  for (var k = 0; k < btns.length; k++) {
+    btns[k].addEventListener('click', function() {
+      var id = this.dataset.id;
+      chrome.bookmarks.remove(id).then(function() {
+        BM_showToast(BM_T('deleted'));
+        BM_displayDuplicates();
+      }).catch(function() {
+        BM_showToast(BM_T('deleteFailed'), true);
+      });
+    });
+  }
+  
+  var itemChecks = groupEl.querySelectorAll('.dup-item-check');
+  for (var m = 0; m < itemChecks.length; m++) {
+    itemChecks[m].addEventListener('change', BM_updateDupSelectedCount);
+  }
+  
+  var groupCheck = groupEl.querySelector('.dup-group-check');
+  if (groupCheck) {
+    groupCheck.addEventListener('change', function() {
+      var gid = this.dataset.group;
+      var checks = groupEl.querySelectorAll('.dup-item-check');
+      for (var p = 0; p < checks.length; p++) {
+        checks[p].checked = this.checked;
+      }
+      BM_updateDupSelectedCount();
+    });
+  }
+  
+  // 非保留 button
+  var nonKeptBtn = groupEl.querySelector('.dup-select-nonkept');
+  if (nonKeptBtn) {
+    nonKeptBtn.addEventListener('click', function() {
+      var gid = this.dataset.group;
+      var checks = groupEl.querySelectorAll('.dup-item-check');
+      var allChecked = true;
+      for (var r = 0; r < checks.length; r++) {
+        if (!checks[r].checked) { allChecked = false; break; }
+      }
+      for (var s = 0; s < checks.length; s++) {
+        checks[s].checked = !allChecked;
+      }
+      BM_updateDupSelectedCount();
+    });
+  }
+  
+  BM_bindDragDrop();
+  BM_showToast('已更換保留書籤');
+}
+
+function BM_updateDupSelectedCount() {
+  var checks = document.querySelectorAll('.dup-item-check:checked');
+  var count = checks.length;
+  var countEl = document.getElementById('selectedDupCount');
+  var btn = document.getElementById('deleteSelectedDups');
+  if (countEl) countEl.textContent = count;
+  if (btn) btn.disabled = count === 0;
+}
+
+async function BM_deleteSelectedDuplicates() {
+  var checks = document.querySelectorAll('.dup-item-check:checked');
+  var ids = [];
+  for (var i = 0; i < checks.length; i++) {
+    ids.push(checks[i].dataset.id);
+  }
+  if (ids.length === 0) return;
+  if (!confirm('確定刪除 ' + ids.length + ' 個書籤？')) return;
+  
+  try {
+    for (var j = 0; j < ids.length; j++) {
+      await chrome.bookmarks.remove(ids[j]);
+    }
+    BM_showToast('已刪除 ' + ids.length + ' 個書籤');
+    BM_displayDuplicates();
+  } catch (e) {
+    BM_showToast(BM_T('deleteFailed'), true);
+  }
 }
 
 async function BM_displayBatchList(folderFilter, searchQuery) {
@@ -389,8 +694,9 @@ async function BM_displayBatchList(folderFilter, searchQuery) {
   var max = Math.min(filtered.length, 100);
   for (var n = 0; n < max; n++) {
     var b = filtered[n];
-    html += '<div class="bookmark-item">' +
-      '<input type="checkbox" class="batch-check" data-id="' + b.id + '">' +
+    html += '<div class="batch-bookmark-item bookmark-item" data-id="' + b.id + '" data-title="' + BM_escapeHtml(b.title) + '" draggable="true">' +
+      '<span class="batch-drag-handle material-icons" style="font-size:20px;">drag_indicator</span>' +
+      '<input type="checkbox" class="batch-item-check" data-id="' + b.id + '">' +
       '<div class="bookmark-info"><div class="bookmark-title">' + BM_escapeHtml(b.title) + '</div>' +
       '<div class="bookmark-url">' + BM_escapeHtml(b.url) + '</div></div>' +
       '<span class="chip">' + BM_escapeHtml(b.folder) + '</span>' +
@@ -400,8 +706,11 @@ async function BM_displayBatchList(folderFilter, searchQuery) {
   }
   container.innerHTML = html;
   
+  // Bind drag and drop
+  BM_bindBatchDragDrop();
+  
   // Bind checkboxes
-  var checks = container.querySelectorAll('.batch-check');
+  var checks = container.querySelectorAll('.batch-item-check');
   for (var p = 0; p < checks.length; p++) {
     checks[p].addEventListener('change', BM_updateSelectedCount);
   }
@@ -424,7 +733,7 @@ async function BM_displayBatchList(folderFilter, searchQuery) {
 }
 
 function BM_updateSelectedCount() {
-  var checks = document.querySelectorAll('.batch-check:checked');
+  var checks = document.querySelectorAll('.batch-item-check:checked');
   var count = checks.length;
   var countEl = document.getElementById('selectedCount');
   var delBtn = document.getElementById('deleteBtn');
@@ -442,7 +751,7 @@ function BM_updateSelectedCount() {
 
 function BM_toggleSelectAll() {
   var selectAll = document.getElementById('selectAllCheck');
-  var checks = document.querySelectorAll('.batch-check');
+  var checks = document.querySelectorAll('.batch-item-check');
   for (var i = 0; i < checks.length; i++) {
     checks[i].checked = selectAll ? selectAll.checked : false;
   }
