@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bookmark Manager</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: 480px;
+      min-height: 600px;
+      font-family: 'Roboto', sans-serif;
+      background: #fafafa;
+      color: rgba(0,0,0,0.87);
+    }
+    .app-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      height: 64px;
+      background: linear-gradient(135deg, #7b1fa2 0%, #9c27b0 100%);
+      color: #fff;
+      box-shadow: 0 2px 4px -1px rgba(0,0,0,0.2), 0 4px 5px 0 rgba(0,0,0,0.14);
+    }
+    .app-bar h1 {
+      font-size: 22px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .app-bar .material-icons { cursor: pointer; opacity: 0.9; transition: all 0.2s; padding: 8px; border-radius: 50%; }
+    .app-bar .material-icons:hover { opacity: 1; background: rgba(255,255,255,0.1); }
+    .search-container { padding: 20px 16px; background: #fff; box-shadow: 0 1px 3px 0 rgba(0,0,0,0.12); }
+    .search-field { display: flex; align-items: center; background: #f5f5f5; border-radius: 8px; padding: 0 16px; height: 52px; transition: all 0.2s; }
+    .search-field:focus-within { background: #fff; box-shadow: 0 0 0 2px #9c27b0, 0 2px 8px rgba(0,0,0,0.1); }
+    .search-field .material-icons { color: #757575; font-size: 24px; }
+    .search-field input { flex: 1; border: none; background: transparent; font-size: 16px; padding: 0 12px; outline: none; }
+    .search-btn { width: 40px; height: 40px; border: none; background: #9c27b0; color: #fff; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+    .search-btn:hover { background: #7b1fa2; transform: scale(1.05); }
+    .search-btn .material-icons { color: #fff; }
+    .folder-select-container { margin-top: 12px; }
+    .select-wrapper { position: relative; }
+    .select-wrapper > .material-icons:first-child { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #757575; font-size: 20px; }
+    .folder-select { width: 100%; padding: 12px 12px 12px 40px; border: 1px solid #e0e0e0; border-radius: 8px; font-size: 14px; background: #fff; cursor: pointer; appearance: none; transition: border-color 0.2s; }
+    .folder-select option { color: #333; }
+    .folder-select:focus { outline: none; border-color: #9c27b0; }
+    .menu-bar { display: flex; background: #fff; box-shadow: 0 1px 3px 0 rgba(0,0,0,0.12); position: relative; }
+    .menu-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 14px 8px; border: none; background: transparent; color: #757575; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; white-space: nowrap; min-width: 0; }
+    .menu-btn:hover { color: #9c27b0; background: rgba(156,39,176,0.04); }
+    .menu-btn.active { color: #9c27b0; background: rgba(156,39,176,0.08); }
+    .menu-btn .material-icons { font-size: 18px; flex-shrink: 0; }
+    .menu-indicator { position: absolute; bottom: 0; height: 3px; background: #9c27b0; border-radius: 3px 3px 0 0; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
+    .content { padding: 16px; max-height: 500px; overflow-y: auto; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .bookmark-item { display: flex; align-items: center; padding: 12px 16px; background: #fff; border-radius: 8px; margin-bottom: 8px; transition: all 0.2s; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.08); border: 1px solid transparent; }
+    .bookmark-item:hover { box-shadow: 0 3px 8px -1px rgba(0,0,0,0.15); border-color: #e1bee7; }
+    .bookmark-item input[type="checkbox"] { margin-right: 12px; accent-color: #9c27b0; width: 18px; height: 18px; }
+    .bookmark-info { flex: 1; min-width: 0; }
+    .bookmark-title { font-size: 14px; font-weight: 500; color: rgba(0,0,0,0.87); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
+    .bookmark-title .highlight { background: #ffeb3b; color: #000; padding: 0 2px; border-radius: 2px; }
+    .bookmark-url { font-size: 12px; color: #9c27b0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bookmark-url .highlight { background: #ffeb3b; color: #000; padding: 0 2px; border-radius: 2px; }
+    .chip { display: inline-flex; align-items: center; padding: 4px 10px; background: #f3e5f5; color: #7b1fa2; border-radius: 16px; font-size: 11px; font-weight: 500; white-space: nowrap; margin-right: 8px; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 20px; border: none; border-radius: 6px; font-size: 13px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer; transition: all 0.2s; }
+    .btn:hover { transform: translateY(-1px); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+    .btn-contained { background: #9c27b0; color: #fff; box-shadow: 0 2px 4px -1px rgba(0,0,0,0.2); }
+    .btn-contained:hover { background: #7b1fa2; box-shadow: 0 4px 8px -1px rgba(0,0,0,0.25); }
+    .btn-outlined { background: transparent; color: #9c27b0; border: 1px solid #9c27b0; }
+    .btn-outlined:hover { background: rgba(156,39,176,0.08); }
+    .btn-danger { background: #d32f2f; color: #fff; box-shadow: 0 2px 4px -1px rgba(0,0,0,0.2); }
+    .btn-danger:hover { background: #c62828; }
+    .btn-success { background: #4caf50; color: #fff; box-shadow: 0 2px 4px -1px rgba(0,0,0,0.2); }
+    .btn-success:hover { background: #388e3c; }
+    .btn-blue { background: #2196f3; color: #fff; box-shadow: 0 2px 4px -1px rgba(0,0,0,0.2); }
+    .btn-blue:hover { background: #1976d2; }
+    .btn-blue:disabled { background: #e0e0e0; color: #999; }
+    .btn-small { padding: 8px; min-width: 40px; }
+    .ripple { position: relative; overflow: hidden; }
+    .batch-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: linear-gradient(135deg, #7b1fa2 0%, #9c27b0 100%); border-radius: 8px; margin-bottom: 12px; }
+    .select-all-label { display: flex; align-items: center; gap: 8px; cursor: pointer; color: #fff; font-weight: 500; font-size: 14px; }
+    .select-all-label input { width: 18px; height: 18px; accent-color: #fff; }
+    .batch-header-actions { display: flex; gap: 8px; }
+    .batch-filter-bar { display: flex; gap: 8px; margin-bottom: 12px; }
+    .batch-filter-bar .select-wrapper { flex: 1; }
+    .btn-sm { padding: 6px 14px; font-size: 12px; }
+    .btn-primary { background: #9c27b0; color: #fff; box-shadow: 0 2px 4px -1px rgba(0,0,0,0.2); }
+    .btn-primary:hover { background: #7b1fa2; }
+    .btn-primary:disabled { background: #e0e0e0; color: #999; }
+    .batch-scroll { max-height: 400px; overflow-y: auto; padding-right: 4px; }
+    .batch-scroll::-webkit-scrollbar { width: 6px; }
+    .batch-scroll::-webkit-scrollbar-track { background: #f5f5f5; border-radius: 3px; }
+    .batch-scroll::-webkit-scrollbar-thumb { background: #9c27b0; border-radius: 3px; }
+    .result-scroll { max-height: 420px; overflow-y: auto; padding-right: 4px; }
+    .result-scroll::-webkit-scrollbar { width: 6px; }
+    .result-scroll::-webkit-scrollbar-track { background: #f5f5f5; border-radius: 3px; }
+    .result-scroll::-webkit-scrollbar-thumb { background: #9c27b0; border-radius: 3px; }
+    .bookmark-actions { display: flex; gap: 4px; }
+    .action-btn { width: 32px; height: 32px; min-width: 32px; padding: 0; display: flex; align-items: center; justify-content: center; border: none; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+    .action-btn.open { background: #9c27b0; color: #fff; }
+    .action-btn.open:hover { background: #7b1fa2; }
+    .action-btn.edit { background: #2196f3; color: #fff; }
+    .action-btn.edit:hover { background: #1976d2; }
+    .action-btn.delete { background: #f44336; color: #fff; }
+    .action-btn.delete:hover { background: #d32f2f; }
+    .help-tabs { display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 2px solid #f0f0f0; }
+    .help-tab { flex: 1; padding: 10px; border: none; background: transparent; font-size: 14px; font-weight: 500; color: #666; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s; }
+    .help-tab:hover { color: #9c27b0; }
+    .help-tab.active { color: #9c27b0; border-bottom-color: #9c27b0; }
+    .help-content { max-height: 400px; overflow-y: auto; padding-right: 8px; }
+    .help-content::-webkit-scrollbar { width: 6px; }
+    .help-content::-webkit-scrollbar-track { background: #f5f5f5; }
+    .help-content::-webkit-scrollbar-thumb { background: #9c27b0; border-radius: 3px; }
+    .help-content h4 { font-size: 14px; color: #9c27b0; margin: 16px 0 8px; }
+    .help-content p { font-size: 13px; color: #555; line-height: 1.6; margin: 8px 0; }
+    .help-content ul { margin: 8px 0; padding-left: 20px; }
+    .help-content li { font-size: 13px; color: #555; line-height: 1.6; margin: 4px 0; }
+    .about-info ul { margin: 8px 0; padding-left: 20px; }
+    .about-info li { font-size: 13px; color: #555; line-height: 1.6; margin: 6px 0; }
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+    .stats-card { background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%); border-radius: 12px; padding: 16px; text-align: center; }
+    .stats-number { font-size: 28px; font-weight: 700; color: #7b1fa2; margin: 8px 0 4px; }
+    .stats-label { font-size: 12px; color: #666; }
+    .stats-header { display: flex; align-items: flex-start; gap: 12px; }
+    .stats-header .stats-grid { flex: 1; }
+    .stats-scroll-wrapper { position: relative; max-height: 320px; overflow-y: auto; margin: 0 -16px; padding: 0 16px; }
+    .stats-back-to-top { position: absolute; bottom: 16px; right: 0; background: #9c27b0; color: #fff; border: none; border-radius: 50%; width: 40px; height: 40px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
+    .stats-back-to-top:hover { background: #7b1fa2; }
+    .stats-section { margin-top: 16px; }
+    .stats-section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .stats-section-header h4 { margin-bottom: 0; }
+    .stats-nav-option { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 10px; background: #f5f5f5; border-radius: 8px; }
+    .stats-nav-option label { font-size: 13px; color: #666; }
+    .stats-nav-select { flex: 1; padding: 6px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; background: #fff; }
+    .stats-section h4 { font-size: 14px; color: #333; margin-bottom: 12px; }
+    .stats-item { display: flex; align-items: center; padding: 10px; background: #fafafa; border-radius: 8px; margin-bottom: 8px; }
+    .stats-item-name { flex: 1; font-size: 13px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .stats-item-count { background: #9c27b0; color: #fff; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; }
+    .stats-item-count.clickable { background: #9c27b0; cursor: pointer; }
+    .stats-item-count.clickable:hover { background: #7b1fa2; }
+    .domain-item, .folder-item { cursor: pointer; }
+    .domain-item:hover, .folder-item:hover { background: #f3e5f5; }
+    .duplicate-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: #f5f5f5; border-radius: 8px 8px 0 0; font-size: 13px; font-weight: 500; color: #666; }
+    .dup-info { display: flex; align-items: center; gap: 6px; }
+    .dup-header-actions { display: flex; align-items: center; gap: 8px; }
+    .dup-label { font-size: 12px; color: #999; font-weight: normal; }
+    .dup-select-all { display: flex; align-items: center; gap: 4px; cursor: pointer; font-size: 12px; color: #666; }
+    .dup-select-all input { width: 16px; height: 16px; }
+    .dup-select-nonkept { padding: 4px 8px; font-size: 11px; border: 1px solid #ddd; background: #fff; border-radius: 4px; cursor: pointer; color: #666; }
+    .dup-select-nonkept:hover { background: #f5f5f5; border-color: #ccc; }
+    .dup-keep { background: #e8f5e9; }
+    .dup-delete { background: #fff; }
+    .dup-keep .keep-badge, .dup-delete .keep-badge { display: none; }
+    .drag-handle { margin-right: 8px; cursor: grab; }
+    .drag-handle:active { cursor: grabbing; }
+    .dup-actions { margin-top: 16px; padding-top: 16px; border-top: 1px solid #eee; }
+    .dup-item-check { width: 18px; height: 18px; margin-right: 8px; accent-color: #f44336; }
+    .bookmark-item[draggable="true"] { cursor: grab; }
+    .bookmark-item[draggable="true"]:active { cursor: grabbing; }
+    .export-card { display: flex; align-items: center; justify-content: space-between; background: #fff; border-radius: 8px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 3px 0 rgba(0,0,0,0.12); transition: all 0.2s; border: 1px solid transparent; }
+    .export-card:hover { box-shadow: 0 3px 8px -1px rgba(0,0,0,0.15); border-color: #e1bee7; }
+    .export-info { display: flex; flex-direction: column; }
+    .export-title { font-weight: 500; font-size: 14px; color: rgba(0,0,0,0.87); }
+    .export-desc { font-size: 12px; color: #757575; margin-top: 2px; }
+    .duplicate-group { background: #fff; border-radius: 8px; padding: 16px; margin-bottom: 16px; border-left: 4px solid #ffc107; box-shadow: 0 1px 3px 0 rgba(0,0,0,0.12); }
+    .duplicate-header { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; color: #f57c00; margin-bottom: 12px; }
+    .duplicate-header .material-icons { font-size: 18px; color: #ffc107; }
+    .keep-badge { display: flex; align-items: center; }
+    .empty-state { text-align: center; padding: 48px 24px; background: #fff; border-radius: 8px; box-shadow: 0 1px 3px 0 rgba(0,0,0,0.12); }
+    .empty-state .material-icons { font-size: 64px; color: #bdbdbd; margin-bottom: 16px; }
+    .empty-state p { color: #757575; font-size: 14px; }
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 200; align-items: center; justify-content: center; }
+    .modal { background: #fff; border-radius: 12px; padding: 24px; width: 90%; max-width: 400px; max-height: 90vh; overflow-y: auto; box-shadow: 0 16px 24px 2px rgba(0,0,0,0.14); }
+    .modal-title { font-size: 20px; font-weight: 500; margin-bottom: 24px; color: rgba(0,0,0,0.87); }
+    .form-group { margin-bottom: 20px; }
+    .form-label { display: block; font-size: 12px; color: #757575; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .form-select { width: 100%; padding: 14px 16px; border: 1px solid #e0e0e0; border-radius: 8px; font-size: 15px; background: #fff; cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath fill='%23757575' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; }
+    .form-select:focus { outline: none; border-color: #9c27b0; box-shadow: 0 0 0 2px rgba(156,39,176,0.2); }
+    input[type="number"].form-select { appearance: textfield; padding-right: 12px; }
+    input[type="number"].form-select::-webkit-inner-spin-button,
+    input[type="number"].form-select::-webkit-outer-spin-button { -webkit-appearance: none; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; }
+    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(100px); padding: 14px 24px; background: #323232; color: #fff; border-radius: 6px; font-size: 14px; opacity: 0; transition: all 0.3s; z-index: 300; box-shadow: 0 4px 8px -1px rgba(0,0,0,0.2); }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .toast.error { background: #d32f2f; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f1f1; }
+    ::-webkit-scrollbar-thumb { background: #bdbdbd; border-radius: 3px; }
+    
+    /* Stats */
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+    .stat-card { background: linear-gradient(135deg, #7b1fa2 0%, #9c27b0 100%); padding: 16px; border-radius: 8px; color: #fff; text-align: center; }
+    .stat-label { font-size: 12px; opacity: 0.9; margin-bottom: 4px; }
+    .stat-value { font-size: 28px; font-weight: bold; }
+    .section-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; color: #7b1fa2; margin: 20px 0 12px; }
+    .stats-list { display: flex; flex-direction: column; gap: 8px; }
+    .stat-item { }
+    .stat-item-info { display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 12px; }
+    .stat-item-name { color: rgba(0,0,0,0.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+    .stat-item-count { color: #7b1fa2; font-weight: 500; }
+    .stat-bar { height: 6px; background: #e0e0e0; border-radius: 3px; overflow: hidden; }
+    .stat-bar-fill { height: 100%; background: linear-gradient(90deg, #7b1fa2, #9c27b0); border-radius: 3px; transition: width 0.3s; }
+    
+    /* Links */
+    .links-summary { display: flex; align-items: center; gap: 8px; padding: 12px 16px; background: #fff3cd; border-radius: 8px; margin-bottom: 12px; color: #856404; font-weight: 500; }
+    .dead-link { border-left: 3px solid #dc3545 !important; }
+    .bookmark-url.error { color: #dc3545 !important; font-size: 11px !important; }
+    .status-badge { background: #dc3545; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-left: 8px; }
+    .loading { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; }
+    .spinner { width: 32px; height: 32px; border: 3px solid #e0e0e0; border-top-color: #9c27b0; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 12px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { text-align: center; color: #666; }
+    .empty-state.success { background: #d4edda !important; }
+    .empty-state.success .material-icons { color: #28a745 !important; }
+    
+    /* Tags */
+    .tag-cloud { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+    .tag-chip { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; background: #f3e5f5; color: #7b1fa2; border: none; border-radius: 16px; font-size: 13px; cursor: pointer; transition: all 0.2s; }
+    .tag-chip:hover { background: #e1bee7; transform: scale(1.05); }
+    .tag-count { background: rgba(156,39,176,0.2); padding: 2px 6px; border-radius: 10px; font-size: 11px; }
+    .tag-list { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+    .tag-chip-mini { display: inline-block; padding: 2px 8px; background: #e1bee7; color: #7b1fa2; border-radius: 10px; font-size: 10px; }
+    .tag-input-group { display: flex; gap: 8px; flex-wrap: wrap; }
+    .tag-input { flex: 1; min-width: 120px; padding: 12px; border: 1px solid #e0e0e0; border-radius: 8px; font-size: 14px; }
+    .tag-input:focus { outline: none; border-color: #9c27b0; }
+    .add-tag-section, .add-reminder-section { margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0; }
+    
+    /* Reminders */
+    .reminder-item { flex-direction: column; align-items: flex-start; }
+    .reminder-item.due { border-left: 3px solid #ffc107 !important; }
+    .reminder-date { font-size: 12px; color: #9c27b0; font-weight: 500; margin-bottom: 4px; }
+    .reminder-date.urgent { color: #dc3545; }
+    .reminder-time { font-size: 11px; color: #888; margin-top: 4px; }
+    .reminder-actions { display: flex; gap: 8px; margin-top: 8px; width: 100%; justify-content: flex-end; }
+    .reminder-form { display: flex; flex-direction: column; gap: 12px; }
+    .reminder-input { padding: 12px; border: 1px solid #e0e0e0; border-radius: 8px; font-size: 14px; }
+    .reminder-input:focus { outline: none; border-color: #9c27b0; }
+    .reminder-days { display: flex; align-items: center; gap: 12px; }
+    .reminder-days label { font-size: 14px; color: #666; }
+    .reminder-days select { flex: 1; padding: 12px; border: 1px solid #e0e0e0; border-radius: 8px; font-size: 14px; background: #fff; cursor: pointer; }
+    .folder-list { max-height: 300px; overflow-y: auto; margin-bottom: 16px; }
+    .folder-list-item { display: flex; align-items: center; padding: 12px; border-radius: 8px; cursor: pointer; transition: all 0.2s; margin-bottom: 4px; border: 2px solid transparent; }
+    .folder-list-item:hover { background: #f3e5f5; }
+    .folder-list-item.selected { background: #f3e5f5; border-color: #9c27b0; }
+    .folder-list-item .material-icons { margin-right: 10px; color: #9c27b0; }
+    .folder-list-item span { font-size: 14px; color: rgba(0,0,0,0.87); }
+    .folder-list::-webkit-scrollbar { width: 6px; }
+    .folder-list::-webkit-scrollbar-track { background: #f5f5f5; }
+    .folder-list::-webkit-scrollbar-thumb { background: #9c27b0; border-radius: 3px; }
+    .sort-options { padding: 8px 0; }
+    .sort-group { margin-bottom: 20px; }
+    .sort-label { font-size: 13px; color: #666; font-weight: 500; display: block; margin-bottom: 10px; }
+    .sort-buttons { display: flex; gap: 10px; }
+    .sort-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; border: 2px solid #e0e0e0; background: #fff; border-radius: 8px; cursor: pointer; font-size: 14px; color: #666; transition: all 0.2s; }
+    .sort-btn:hover { border-color: #9c27b0; color: #9c27b0; }
+    .sort-btn.active { border-color: #9c27b0; background: #f3e5f5; color: #9c27b0; font-weight: 500; }
+    .sort-toggle { display: flex; flex-direction: column; gap: 10px; }
+    .toggle-label { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 14px; color: #555; }
+    .toggle-label input { width: 18px; height: 18px; accent-color: #9c27b0; }
+    .batch-item-check { width: 18px; height: 18px; margin-right: 8px; accent-color: #9c27b0; }
+    .batch-drag-handle { color: #999; cursor: grab; margin-right: 8px; }
+    .batch-drag-handle:active { cursor: grabbing; }
+  </style>
+</head>
+<body>
+  <!-- App Bar -->
+  <div class="app-bar">
+    <h1><span class="material-icons">bookmark</span> <span id="appTitle">書籤管理</span></h1>
+    <div style="display:flex;gap:8px;">
+      <span class="material-icons" id="helpBtn" title="Help">help_outline</span>
+      <span class="material-icons" id="settingsBtn" title="Settings">settings</span>
+    </div>
+  </div>
+  
+  <!-- Search Bar (only visible on search tab) -->
+  <div class="search-container" id="searchBar" style="display:none;">
+    <div class="search-field">
+      <span class="material-icons">search</span>
+      <input type="text" id="searchInput" placeholder="搜尋書籤...">
+      <button class="search-btn ripple" id="searchBtn">
+        <span class="material-icons" style="font-size:20px;">arrow_forward</span>
+      </button>
+    </div>
+    <div class="folder-select-container">
+      <div class="select-wrapper">
+        <span class="material-icons">folder</span>
+        <select id="searchFolderSelect" class="folder-select" disabled>
+          <option value="">載入資料夾中...</option>
+        </select>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Menu -->
+  <div class="menu-bar">
+    <button class="menu-btn active" data-tab="search" id="menuSearch">
+      <span class="material-icons">search</span>
+      <span>搜尋</span>
+    </button>
+    <button class="menu-btn" data-tab="duplicates" id="menuDup">
+      <span class="material-icons">content_copy</span>
+      <span>重複</span>
+    </button>
+    <button class="menu-btn" data-tab="batch" id="menuBatch">
+      <span class="material-icons">dashboard</span>
+      <span>批量</span>
+    </button>
+    <button class="menu-btn" data-tab="stats" id="menuStats">
+      <span class="material-icons">bar_chart</span>
+      <span>分析</span>
+    </button>
+    <button class="menu-btn" data-tab="export" id="menuExport">
+      <span class="material-icons">file_download</span>
+      <span>匯出</span>
+    </button>
+    <div class="menu-indicator" id="menuIndicator"></div>
+  </div>
+  
+  <!-- Content -->
+  <div class="content">
+    <!-- Search -->
+    <div class="tab-content active" id="search-tab">
+      <div id="searchResults" class="result-scroll">
+        <div class="empty-state">
+          <span class="material-icons">search</span>
+          <p>輸入關鍵字搜尋書籤</p>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Duplicates -->
+    <div class="tab-content" id="duplicates-tab">
+      <div id="duplicatesContent">
+        <div class="empty-state">
+          <span class="material-icons">content_copy</span>
+          <p>點擊此頁面掃描重複書籤</p>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Batch -->
+    <div class="tab-content" id="batch-tab">
+      <div class="batch-header">
+        <label class="select-all-label">
+          <input type="checkbox" id="selectAllCheck">
+          <span id="selectAllLabel">全選</span>
+        </label>
+        <div class="batch-header-actions">
+          <button class="btn btn-success btn-sm" id="sortBtn">排序</button>
+          <button class="btn btn-blue btn-sm" id="moveBtn" disabled>移動</button>
+          <button class="btn btn-danger btn-sm" id="deleteBtn" disabled>刪除</button>
+        </div>
+      </div>
+      <div class="batch-filter-bar">
+        <div class="select-wrapper" style="flex:1;">
+          <span class="material-icons">folder</span>
+          <select id="folderSelect" class="folder-select" disabled>
+            <option value="">載入資料夾中...</option>
+          </select>
+        </div>
+        <div class="select-wrapper" style="flex:1;">
+          <span class="material-icons">search</span>
+          <input type="text" id="batchSearchInput" class="folder-select" placeholder="搜尋..." style="padding-left:36px;">
+        </div>
+      </div>
+      <div id="batchList" class="batch-scroll"></div>
+    </div>
+    
+    <!-- Stats -->
+    <div class="tab-content" id="stats-tab">
+      <div id="statsContent">
+        <div class="stats-header">
+          <div class="stats-grid">
+            <div class="stats-card">
+              <span class="material-icons" style="font-size:32px;color:#9c27b0;">bookmark</span>
+              <div class="stats-number" id="totalBookmarks">-</div>
+              <div class="stats-label">書籤總數</div>
+            </div>
+            <div class="stats-card">
+              <span class="material-icons" style="font-size:32px;color:#ff9800;">folder</span>
+              <div class="stats-number" id="totalFolders">-</div>
+              <div class="stats-label">資料夾數</div>
+            </div>
+          </div>
+          <button class="btn btn-sm btn-primary" id="refreshStatsBtn" title="重新統計">
+            <span class="material-icons" style="font-size:18px;">refresh</span>
+          </button>
+        </div>
+        <div class="stats-section">
+          <div class="stats-nav-option">
+            <label>點擊跳轉到：</label>
+            <select id="statsNavTarget" class="stats-nav-select">
+              <option value="search">搜尋</option>
+              <option value="batch">批次</option>
+            </select>
+          </div>
+        </div>
+        <div class="stats-scroll-wrapper" id="statsScrollWrapper">
+          <button class="stats-back-to-top" id="statsBackToTop" title="回到最上" style="display:none;">
+            <span class="material-icons">arrow_upward</span>
+          </button>
+          <div class="stats-section">
+            <div class="stats-section-header">
+              <h4>🌐 網址網域 TOP10</h4>
+              <button class="btn btn-sm btn-outlined" id="expandDomainStats" style="display:none;">顯示全部</button>
+            </div>
+            <div id="domainStatsList"></div>
+          </div>
+          <div class="stats-section">
+            <div class="stats-section-header">
+              <h4>📁 資料夾書籤數</h4>
+              <button class="btn btn-sm btn-outlined" id="expandFolderStats" style="display:none;">顯示全部</button>
+            </div>
+            <div id="folderStatsList"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Export -->
+    <div class="tab-content" id="export-tab">
+      <div class="export-card">
+        <div class="export-info">
+          <span class="export-title" id="expHtmlT">HTML 格式</span>
+          <span class="export-desc" id="expHtmlD">標準書籤格式</span>
+        </div>
+        <button class="btn btn-contained" id="exportHtmlBtn">匯出</button>
+      </div>
+      <div class="export-card">
+        <div class="export-info">
+          <span class="export-title" id="expJsonT">JSON 格式</span>
+          <span class="export-desc" id="expJsonD">完整備份含元數據</span>
+        </div>
+        <button class="btn btn-contained" id="exportJsonBtn">匯出</button>
+      </div>
+      <div class="export-card">
+        <div class="export-info">
+          <span class="export-title" id="expMdT">Markdown</span>
+          <span class="export-desc" id="expMdD">適合閱讀整理</span>
+        </div>
+        <button class="btn btn-contained" id="exportMdBtn">匯出</button>
+      </div>
+    </div>
+  
+  <!-- Settings Modal -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal">
+      <div class="modal-title" id="settingsTitle">設定</div>
+      
+      <div class="form-group">
+        <label class="form-label" id="langLabel">語言</label>
+        <select class="form-select" id="langSelect">
+          <option value="zh_TW">繁體中文</option>
+          <option value="zh_CN">簡體中文</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label" id="winLabel">視窗大小</label>
+        <select class="form-select" id="windowSizeSelect" onchange="BM_showCustomInputs()">
+          <option value="small">小 (380px)</option>
+          <option value="medium">中 (480px)</option>
+          <option value="large">大 (600px)</option>
+          <option value="xlarge">特大 (750px)</option>
+          <option value="xxlarge">超大 (900px)</option>
+          <option value="custom">自訂尺寸</option>
+          <option value="fullscreen">全螢幕</option>
+        </select>
+        <div id="customSizeGroup" style="display:none; margin-top:12px;">
+          <div style="display:flex; gap:8px;">
+            <div style="flex:1;">
+              <label class="form-label">寬度 (px)</label>
+              <input type="number" id="customWidth" class="form-select" placeholder="500" style="width:100%;">
+            </div>
+            <div style="flex:1;">
+              <label class="form-label">高度 (px)</label>
+              <input type="number" id="customHeight" class="form-select" placeholder="700" style="width:100%;">
+            </div>
+          </div>
+        </div>
+      </div>
+      
+
+      
+      <div class="modal-actions">
+        <button class="btn btn-outlined" id="cancelBtn">取消</button>
+        <button class="btn btn-contained" id="saveBtn">儲存</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Toast -->
+  <div id="bm-toast" class="toast"></div>
+  
+  <!-- Move Modal -->
+  <div class="modal-overlay" id="moveModal">
+    <div class="modal">
+      <div class="modal-title">
+        <span class="material-icons" style="vertical-align:middle;">drive_file_move</span> 移動到資料夾
+      </div>
+      <div id="folderList" class="folder-list"></div>
+      <div class="modal-actions">
+        <button class="btn btn-outlined" id="cancelMove">取消</button>
+        <button class="btn btn-contained" id="confirmMove">確定</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Sort Modal -->
+  <div class="modal-overlay" id="sortModal">
+    <div class="modal">
+      <div class="modal-title">
+        <span class="material-icons" style="vertical-align:middle;">sort</span> 排序書籤
+      </div>
+      <div class="sort-options">
+        <div class="sort-group">
+          <label class="sort-label">排序方式</label>
+          <div class="sort-buttons">
+            <button class="sort-btn active" data-sort="az" id="sortAZ">
+              <span class="material-icons" style="font-size:18px;">sort_by_alpha</span>
+              <span>A → Z</span>
+            </button>
+            <button class="sort-btn" data-sort="za" id="sortZA">
+              <span class="material-icons" style="font-size:18px;">sort_by_alpha</span>
+              <span>Z → A</span>
+            </button>
+          </div>
+        </div>
+        <div class="sort-group">
+          <label class="sort-label">顯示方式</label>
+          <div class="sort-toggle">
+            <label class="toggle-label">
+              <input type="checkbox" id="sortShowCheckboxes" checked>
+              <span>顯示勾選框</span>
+            </label>
+            <label class="toggle-label">
+              <input type="checkbox" id="sortShowDrag" checked>
+              <span>顯示拖曳把手</span>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-outlined" id="cancelSort">取消</button>
+        <button class="btn btn-contained" id="confirmSort">套用</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Edit Modal -->
+  <div class="modal-overlay" id="editModal">
+    <div class="modal">
+      <div class="modal-title">
+        <span class="material-icons" style="vertical-align:middle;">edit</span> 編輯書籤
+      </div>
+      <div class="form-group">
+        <label class="form-label">名稱</label>
+        <input type="text" id="editTitleInput" class="form-select" style="width:100%;padding:12px;">
+      </div>
+      <div class="form-group">
+        <label class="form-label">網址</label>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="editUrlInput" class="form-select" style="flex:1;padding:12px;">
+          <button class="btn btn-outlined" id="testUrlBtn" style="padding:8px 12px;" title="測試連結">
+            <span class="material-icons" style="font-size:20px;">link</span>
+          </button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">資料夾</label>
+        <div id="editFolderPath" style="font-size:14px;color:#666;padding:8px 0;"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-outlined" id="cancelEdit">取消</button>
+        <button class="btn btn-contained" id="saveEdit">儲存</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Help Modal -->
+  <div class="modal-overlay" id="helpModal">
+    <div class="modal" style="max-width:500px;">
+      <div class="modal-title">
+        <span class="material-icons" style="vertical-align:middle;">help_outline</span> 說明
+      </div>
+      <div class="help-tabs">
+        <button class="help-tab active" data-tab="privacy">隱私政策</button>
+        <button class="help-tab" data-tab="about">關於</button>
+      </div>
+      <div class="help-content" id="privacy-content" style="display:block;">
+        <h3 style="margin-top:0;font-size:16px;">隱私政策</h3>
+        <h4>1. 資料收集</h4>
+        <p>本擴充功能不會收集或傳輸您的任何個人資料到遠端伺服器。所有資料都儲存在您的本地瀏覽器中。</p>
+        <h4>2. 資料儲存</h4>
+        <p>本擴充功能使用 Chrome 的本地儲存（chrome.storage.local）來儲存以下資訊：</p>
+        <ul>
+          <li>書籤資料：用於快速存取和展示書籤</li>
+        </ul>
+        <p>所有儲存的資料僅保存在您的本地裝置上，不會同步到雲端。</p>
+        <h4>3. 權限使用說明</h4>
+        <p>本擴充功能需要以下權限才能正常運作：</p>
+        <ul>
+          <li>bookmarks（書籤）：讀取您的 Chrome 書籤，以便在導覽頁面中展示</li>
+          <li>storage（儲存）：在本地儲存您的設定資料</li>
+          <li>tabs（分頁）：開啟書籤時建立新分頁</li>
+        </ul>
+        <h4>4. 第三方服務</h4>
+        <p>本擴充功能使用了以下第三方服務：</p>
+        <ul>
+          <li>Favicon 獲取：使用 Google Favicon 服務獲取網站圖示</li>
+        </ul>
+        <h4>5. 資料安全</h4>
+        <p>我們採取措施保護您的資料安全：</p>
+        <ul>
+          <li>所有資料儲存在本地，不上傳到我們的伺服器</li>
+          <li>不收集任何使用統計資料或使用者行為資料</li>
+        </ul>
+        <h4>6. 政策更新</h4>
+        <p>我們可能會不時更新本隱私政策。更新後的政策將在本頁面發布，並在擴充功能更新時通知您。</p>
+        <p>本擴充功能尊重您的隱私，並致力於保護您的個人資訊安全。</p>
+      </div>
+      <div class="help-content" id="about-content" style="display:none;">
+        <h3 style="margin-top:0;font-size:16px;">關於</h3>
+        <div class="about-info">
+          <div style="text-align:center;margin-bottom:20px;">
+            <img src="icons8-bookmark-64.png" style="width:64px;height:64px;border-radius:12px;">
+            <h2 style="margin:12px 0 4px;">書籤管理助手</h2>
+            <p style="color:#666;margin:0;">版本 1.03</p>
+          </div>
+          <h4>主要功能</h4>
+          <ul>
+            <li><strong>🔍 快速搜尋</strong>：快速搜尋書籤，支援關鍵字高亮</li>
+            <li><strong>📁 資料夾篩選</strong>：按資料夾過濾書籤</li>
+            <li><strong>📊 分析統計</strong>：網域/資料夾書籤數量統計，點擊可快速檢索</li>
+            <li><strong>📋 重複偵測</strong>：找出並管理重複書籤</li>
+            <li><strong>✏️ 編輯書籤</strong>：直接編輯書籤名稱和網址</li>
+            <li><strong>🔗 連結測試</strong>：測試書籤網址是否正常</li>
+            <li><strong>🗂️ 批次操作</strong>：批次刪除或移動書籤，支援資料夾選擇</li>
+            <li><strong>💾 資料持久化</strong>：搜尋結果自動保存到 IndexedDB</li>
+            <li><strong>🌐 多語言</strong>：支援繁體、簡體、英文</li>
+            <li><strong>📤 匯出功能</strong>：匯出為 HTML、JSON、Markdown</li>
+            <li><strong>📱 響應式設計</strong>：自訂視窗大小，滾動位置自動保留</li>
+            <li><strong>🔒 隱私優先</strong>：所有資料本地儲存，不上傳伺服器</li>
+          </ul>
+          <p style="color:#666;font-size:12px;text-align:center;margin-top:20px;">
+            使用 Chrome Extension API (Manifest V3) 建構
+          </p>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-contained" id="closeHelp">關閉</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Scripts -->
+  <script src="js/i18n.js"></script>
+  <script src="js/settings.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/bookmarks.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
